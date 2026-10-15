@@ -24,21 +24,30 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Generate and Build App
+      - name: Generate Realistic Casino App
         run: |
           flutter create --platforms=android myapp
           cd myapp
+          flutter pub add url_launcher
           cat << 'EOF' > lib/main.dart
           import 'dart:async';
           import 'dart:math';
           import 'package:flutter/material.dart';
+          import 'package:flutter/services.dart';
+          import 'package:url_launcher/url_launcher.dart';
 
           void main() {
-            runApp(const RoyalCasinoProApp());
+            WidgetsFlutterBinding.ensureInitialized();
+            SystemChrome.setPreferredOrientations([
+              DeviceOrientation.landscapeLeft,
+              DeviceOrientation.landscapeRight,
+            ]).then((_) {
+              runApp(const RoyalCasinoApp());
+            });
           }
 
-          class RoyalCasinoProApp extends StatelessWidget {
-            const RoyalCasinoProApp({super.key});
+          class RoyalCasinoApp extends StatelessWidget {
+            const RoyalCasinoApp({super.key});
 
             @override
             Widget build(BuildContext context) {
@@ -47,13 +56,20 @@ jobs:
                 debugShowCheckedModeBanner: false,
                 theme: ThemeData(
                   brightness: Brightness.dark,
-                  scaffoldBackgroundColor: const Color(0xFF090D16),
+                  scaffoldBackgroundColor: const Color(0xFF070B14),
                 ),
                 home: const CasinoLobbyScreen(),
               );
             }
           }
 
+          // ------------------ GLOBAL WALLET ------------------
+          class WalletState {
+            static double chips = 5000.0;
+            static double winCash = 1200.0;
+          }
+
+          // ------------------ SCREEN 1: LANDSCAPE CASINO LOBBY ------------------
           class CasinoLobbyScreen extends StatefulWidget {
             const CasinoLobbyScreen({super.key});
             @override
@@ -61,167 +77,404 @@ jobs:
           }
 
           class _CasinoLobbyScreenState extends State<CasinoLobbyScreen> {
-            double balance = 2500;
+            void refresh() => setState(() {});
 
-            @override
-            Widget build(BuildContext context) {
-              return Scaffold(
-                appBar: AppBar(
-                  backgroundColor: const Color(0xFF0B0F19),
-                  title: const Text("ROYAL CASINO VIP LOBBY", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 16)),
+            void launchUPI(double amount) async {
+              final upiUrl = Uri.parse(
+                "upi://pay?pa=merchant89@upi&pn=RoyalCasino&am=${amount.toInt()}&cu=INR&tn=AddChips",
+              );
+              try {
+                if (await canLaunchUrl(upiUrl)) {
+                  await launchUrl(upiUrl, mode: LaunchMode.externalApplication);
+                }
+              } catch (_) {}
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  backgroundColor: const Color(0xFF1E293B),
+                  title: const Text("UPI Payment Status", style: TextStyle(color: Colors.amber)),
+                  content: Text("₹${amount.toInt()} Add Cash request initiate ho gayi hai.\nPayment complete hote hi chips auto-add ho jayenge."),
                   actions: [
-                    Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.amber)),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.monetization_on, color: Colors.amber, size: 18),
-                          const SizedBox(width: 4),
-                          Text("₹${balance.toInt()}", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.greenAccent)),
-                        ],
-                      ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                      onPressed: () {
+                        setState(() => WalletState.chips += amount);
+                        Navigator.pop(ctx);
+                      },
+                      child: const Text("Success (Simulate)"),
                     ),
                   ],
                 ),
-                body: Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Color(0xFF13112E), Color(0xFF090D16)],
-                    ),
-                  ),
-                  child: GridView.count(
-                    padding: const EdgeInsets.all(16),
-                    crossAxisCount: 2,
-                    childAspectRatio: 1.3,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    children: [
-                      _gameTile("TEEN PATTI", "5-Player Live Table", Icons.style, const [Color(0xFF7F1D1D), Color(0xFFDC2626)], () {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const TeenPattiTableScreen()));
-                      }),
-                      _gameTile("DRAGON vs TIGER", "Instant Win", Icons.flash_on, const [Color(0xFF7C2D12), Color(0xFFEA580C)], () {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const DragonTigerScreen()));
-                      }),
-                      _gameTile("ANDAR BAHAR", "Classic 50-50", Icons.swap_horiz, const [Color(0xFF064E3B), Color(0xFF059669)], () {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const AndarBaharScreen()));
-                      }),
-                      _gameTile("ADD CASH / UPI", "Fast Withdrawal", Icons.account_balance_wallet, const [Color(0xFF1E3A8A), Color(0xFF2563EB)], () {
-                        _showUpiSheet();
-                      }),
-                    ],
-                  ),
-                ),
               );
             }
 
-            Widget _gameTile(String title, String subtitle, IconData icon, List<Color> colors, VoidCallback onTap) {
-              return GestureDetector(
-                onTap: onTap,
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: colors),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.amber.withOpacity(0.8), width: 1.5),
-                  ),
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Icon(icon, size: 28, color: Colors.white),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white)),
-                          Text(subtitle, style: const TextStyle(fontSize: 10, color: Colors.white70)),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }
-
-            void _showUpiSheet() {
+            void showAddCashSheet() {
               showModalBottomSheet(
                 context: context,
                 backgroundColor: const Color(0xFF0F172A),
+                shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
                 builder: (ctx) => Padding(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(16),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text("UPI Instant Wallet", style: TextStyle(fontSize: 18, color: Colors.amber, fontWeight: FontWeight.bold)),
+                      const Text("ADD CASH VIA REAL UPI", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.amber)),
                       const SizedBox(height: 12),
-                      ElevatedButton(
-                        onPressed: () {
-                          setState(() => balance += 500);
-                          Navigator.pop(ctx);
-                        },
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green, minimumSize: const Size(double.infinity, 42)),
-                        child: const Text("Add ₹500 via PhonePe/GPay"),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [100, 500, 1000, 2000].map((amt) {
+                          return ElevatedButton(
+                            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E293B)),
+                            onPressed: () {
+                              Navigator.pop(ctx);
+                              launchUPI(amt.toDouble());
+                            },
+                            child: Text("+ ₹$amt", style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold)),
+                          );
+                        }).toList(),
                       ),
+                      const SizedBox(height: 12),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green, minimumSize: const Size(double.infinity, 40)),
+                        icon: const Icon(Icons.flash_on),
+                        label: const Text("Pay ₹500 via PhonePe / GPay / Paytm"),
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          launchUPI(500);
+                        },
+                      )
                     ],
                   ),
                 ),
               );
             }
-          }
-
-          class TeenPattiTableScreen extends StatefulWidget {
-            const TeenPattiTableScreen({super.key});
-            @override
-            State<TeenPattiTableScreen> createState() => _TeenPattiTableScreenState();
-          }
-
-          class _TeenPattiTableScreenState extends State<TeenPattiTableScreen> {
-            int pot = 100;
-            bool seen = false;
-            List<String> cards = ["A♠", "K♥", "Q♦"];
 
             @override
             Widget build(BuildContext context) {
               return Scaffold(
-                appBar: AppBar(title: const Text("Teen Patti Live Table"), backgroundColor: const Color(0xFF064E3B)),
                 body: Container(
-                  color: const Color(0xFF022C22),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF1E112A), Color(0xFF070B14)],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
+                  ),
                   child: Column(
                     children: [
-                      const SizedBox(height: 10),
-                      const Text("5-Player VIP Room", style: TextStyle(color: Colors.amberAccent, fontSize: 12)),
-                      const Spacer(),
+                      // Top Bar
                       Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0xFF047857), border: Border.all(color: Colors.amber, width: 3)),
-                        child: Text("POT\n₹$pot", textAlign: TextAlign.center, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.amber)),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        color: Colors.black.withOpacity(0.6),
+                        child: Row(
+                          children: [
+                            const CircleAvatar(
+                              backgroundColor: Colors.amber,
+                              radius: 16,
+                              child: Text("👑", style: TextStyle(fontSize: 16)),
+                            ),
+                            const SizedBox(width: 8),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: const [
+                                Text("Player Anand", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white)),
+                                Text("VIP Level 5", style: TextStyle(fontSize: 10, color: Colors.amberAccent)),
+                              ],
+                            ),
+                            const Spacer(),
+                            GestureDetector(
+                              onTap: showAddCashSheet,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF1E293B),
+                                  borderRadius: BorderRadius.circular(15),
+                                  border: Border.all(color: Colors.amber),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.monetization_on, color: Colors.amber, size: 16),
+                                    const SizedBox(width: 4),
+                                    Text("₹${WalletState.chips.toInt()}", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.greenAccent, fontSize: 13)),
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle),
+                                      child: const Icon(Icons.add, size: 14, color: Colors.white),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      const Spacer(),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: cards.map((c) => Container(
-                          margin: const EdgeInsets.all(4),
-                          width: 50,
-                          height: 75,
-                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
+
+                      // Games Carousel / Cards
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Row(
+                            children: [
+                              _gameBox("TEEN PATTI", "5-Player Oval Live Table", Icons.style, const [Color(0xFF831843), Color(0xFFBE123C)], () {
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => const RealTeenPattiTable())).then((_) => refresh());
+                              }),
+                              const SizedBox(width: 12),
+                              _gameBox("ANDAR BAHAR", "Live Deal Card Matching", Icons.swap_horiz, const [Color(0xFF064E3B), Color(0xFF059669)], () {
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => const RealAndarBaharTable())).then((_) => refresh());
+                              }),
+                              const SizedBox(width: 12),
+                              _gameBox("DRAGON vs TIGER", "Real Card Clash Battle", Icons.bolt, const [Color(0xFF7C2D12), Color(0xFFEA580C)], () {
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => const RealDragonTigerTable())).then((_) => refresh());
+                              }),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            Widget _gameBox(String title, String desc, IconData icon, List<Color> gradient, VoidCallback onTap) {
+              return Expanded(
+                child: GestureDetector(
+                  onTap: onTap,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(colors: gradient, begin: Alignment.topLeft, end: Alignment.bottomRight),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: Colors.amber, width: 2),
+                      boxShadow: [
+                        BoxShadow(color: gradient.last.withOpacity(0.4), blurRadius: 10, spreadRadius: 2),
+                      ],
+                    ),
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(6)),
+                              child: const Text("LIVE CASINO", style: TextStyle(color: Colors.amber, fontSize: 9, fontWeight: FontWeight.bold)),
+                            ),
+                            Icon(icon, color: Colors.white, size: 26),
+                          ],
+                        ),
+                        const Spacer(),
+                        Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                        Text(desc, style: const TextStyle(fontSize: 10, color: Colors.white70)),
+                        const SizedBox(height: 8),
+                        Container(
                           alignment: Alignment.center,
-                          child: Text(seen ? c : "🂠", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: c.contains("♥") || c.contains("♦") ? Colors.red : Colors.black)),
-                        )).toList(),
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          decoration: BoxDecoration(color: Colors.amber, borderRadius: BorderRadius.circular(8)),
+                          child: const Text("PLAY NOW", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 11)),
+                        )
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }
+          }
+
+          // ------------------ SCREEN 2: ASLI 5-PLAYER TEEN PATTI FELT TABLE ------------------
+          class RealTeenPattiTable extends StatefulWidget {
+            const RealTeenPattiTable({super.key});
+            @override
+            State<RealTeenPattiTable> createState() => _RealTeenPattiTableState();
+          }
+
+          class _RealTeenPattiTableState extends State<RealTeenPattiTable> {
+            int pot = 100;
+            int currentBet = 20;
+            bool isSeen = false;
+            String status = "Aapki baari hai! Chaal ya Show karein.";
+            List<String> userCards = ["A♠", "K♥", "Q♦"];
+            List<Map<String, dynamic>> bots = [
+              {"name": "Vikram", "av": "🧔", "chips": 2500, "packed": false},
+              {"name": "Pooja", "av": "👩", "chips": 1800, "packed": false},
+              {"name": "Sameer", "av": "🧑", "chips": 3400, "packed": false},
+              {"name": "Rahul", "av": "😎", "chips": 2100, "packed": false},
+            ];
+
+            void doChaal() {
+              if (WalletState.chips < currentBet) return;
+              setState(() {
+                WalletState.chips -= currentBet;
+                pot += currentBet;
+                status = "Dusre players chaal chal rahe hain...";
+              });
+              Timer(const Duration(milliseconds: 900), () {
+                if (!mounted) return;
+                setState(() {
+                  pot += (currentBet * 3);
+                  status = "Aapki chaal! (+₹$currentBet)";
+                });
+              });
+            }
+
+            void doShow() {
+              setState(() {
+                WalletState.chips += pot;
+              });
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  backgroundColor: const Color(0xFF0F172A),
+                  title: const Text("🏆 YOU WON TEEN PATTI!", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
+                  content: Text("Aapne ₹$pot ka pot jeet liya! Chips wallet me add ho gaye."),
+                  actions: [
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, foregroundColor: Colors.black),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        setState(() {
+                          pot = 100;
+                          isSeen = false;
+                        });
+                      },
+                      child: const Text("NEW ROUND"),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            @override
+            Widget build(BuildContext context) {
+              return Scaffold(
+                body: Container(
+                  decoration: const BoxDecoration(
+                    radialGradient: RadialGradient(
+                      radius: 1.1,
+                      colors: [Color(0xFF064E3B), Color(0xFF021E16)],
+                    ),
+                  ),
+                  child: Stack(
+                    children: [
+                      // Top header
+                      Positioned(
+                        top: 8,
+                        left: 12,
+                        right: 12,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.pop(context)),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(10)),
+                              child: Text(status, style: const TextStyle(color: Colors.amberAccent, fontSize: 11)),
+                            ),
+                            Text("Chips: ₹${WalletState.chips.toInt()}", style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 13)),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 10),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          ElevatedButton(onPressed: () => setState(() => seen = !seen), style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey), child: Text(seen ? "BLIND" : "SEE")),
-                          const SizedBox(width: 10),
-                          ElevatedButton(onPressed: () => setState(() => pot += 20), style: ElevatedButton.styleFrom(backgroundColor: Colors.green), child: const Text("CHAAL ₹20")),
-                          const SizedBox(width: 10),
-                          ElevatedButton(onPressed: () => Navigator.pop(context), style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: const Text("PACK")),
-                        ],
+
+                      // 4 Bots Seated
+                      Positioned(
+                        top: 40,
+                        left: 40,
+                        right: 40,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: bots.map((b) => Column(
+                            children: [
+                              CircleAvatar(radius: 16, backgroundColor: Colors.black38, child: Text(b["av"], style: const TextStyle(fontSize: 16))),
+                              Text(b["name"], style: const TextStyle(fontSize: 10, color: Colors.white70)),
+                              Text("₹${b["chips"]}", style: const TextStyle(fontSize: 9, color: Colors.amberAccent, fontWeight: FontWeight.bold)),
+                            ],
+                          )).toList(),
+                        ),
                       ),
-                      const SizedBox(height: 20),
+
+                      // Center Table Oval Pot
+                      Center(
+                        child: Container(
+                          width: 260,
+                          height: 110,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF047857),
+                            borderRadius: BorderRadius.circular(70),
+                            border: Border.all(color: Colors.amber, width: 3),
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 15)],
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text("TABLE POT", style: TextStyle(color: Colors.white70, fontSize: 10, letterSpacing: 1.2)),
+                              Text("₹$pot", style: const TextStyle(color: Colors.amber, fontSize: 24, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      // Bottom User Cards & Actions
+                      Positioned(
+                        bottom: 8,
+                        left: 16,
+                        right: 16,
+                        child: Row(
+                          children: [
+                            Column(
+                              children: [
+                                const CircleAvatar(radius: 16, backgroundColor: Colors.amber, child: Text("👑")),
+                                const Text("Anand", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                            const SizedBox(width: 16),
+                                 const SizedBox(width: 16),
+                            // User 3 Cards
+                            GestureDetector(
+                              onTap: () => setState(() => isSeen = !isSeen),
+                              child: Row(
+                                children: userCards.map((c) => Container(
+                                  margin: const EdgeInsets.symmetric(horizontal: 2),
+                                  width: 44,
+                                  height: 64,
+                                  decoration: BoxDecoration(
+                                    color: isSeen ? Colors.white : const Color(0xFF1E3A8A),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: Colors.amber, width: 1.5),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    isSeen ? c : "🂠",
+                                    style: TextStyle(
+                                      fontSize: isSeen ? 15 : 22,
+                                      fontWeight: FontWeight.bold,
+                                      color: isSeen ? (c.contains("♥") || c.contains("♦") ? Colors.red : Colors.black) : Colors.white,
+                                    ),
+                                  ),
+                                )).toList(),
+                              ),
+                            ),
+                            const Spacer(),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.red, minimumSize: const Size(60, 36)),
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text("PACK", style: TextStyle(fontSize: 11)),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.green, minimumSize: const Size(80, 36)),
+                              onPressed: doChaal,
+                              child: Text("CHAAL ₹$currentBet", style: const TextStyle(fontSize: 11)),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, foregroundColor: Colors.black, minimumSize: const Size(65, 36)),
+                              onPressed: doShow,
+                              child: const Text("SHOW", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -229,31 +482,165 @@ jobs:
             }
           }
 
-          class DragonTigerScreen extends StatefulWidget {
-            const DragonTigerScreen({super.key});
+          // ------------------ SCREEN 3: ASLI ANDAR BAHAR WITH STEP DEALING ------------------
+          class RealAndarBaharTable extends StatefulWidget {
+            const RealAndarBaharTable({super.key});
             @override
-            State<DragonTigerScreen> createState() => _DragonTigerScreenState();
+            State<RealAndarBaharTable> createState() => _RealAndarBaharTableState();
           }
 
-          class _DragonTigerScreenState extends State<DragonTigerScreen> {
-            String msg = "Bet on Dragon or Tiger";
-            void play() {
+          class _RealAndarBaharTableState extends State<RealAndarBaharTable> {
+            String joker = "K♠";
+            List<String> andarCards = [];
+            List<String> baharCards = [];
+            bool isDealing = false;
+            String status = "Andar ya Bahar par ₹50 bet lagayein!";
+            final List<String> deck = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+
+            void startDealing(String userChoice) {
+              if (isDealing || WalletState.chips < 50) return;
               setState(() {
-                msg = Random().nextBool() ? "Dragon Wins!" : "Tiger Wins!";
+                WalletState.chips -= 50;
+                isDealing = true;
+                andarCards.clear();
+                baharCards.clear();
+                status = "Dealing Tash ke Patte...";
+              });
+
+              int step = 0;
+              Timer.periodic(const Duration(milliseconds: 600), (timer) {
+                if (!mounted) {
+                  timer.cancel();
+                  return;
+                }
+                String nextRank = deck[Random().nextInt(deck.length)];
+                String cardStr = "$nextRank♦";
+                bool isAndarTurn = (step % 2 == 0);
+
+                setState(() {
+                  if (isAndarTurn) {
+                    andarCards.add(cardStr);
+                  } else {
+                    baharCards.add(cardStr);
+                  }
+                });
+
+                if (nextRank == "K" || step >= 8) {
+                  timer.cancel();
+                  String winningSide = isAndarTurn ? "Andar" : "Bahar";
+                  bool won = (userChoice == winningSide);
+                  if (won) WalletState.chips += 100;
+                  setState(() {
+                    isDealing = false;
+                    status = won ? "🎉 $winningSide Match hua! Aap jeete ₹100" : "❌ $winningSide Match hua! Agli baar try karein";
+                  });
+                }
+                step++;
               });
             }
 
             @override
             Widget build(BuildContext context) {
               return Scaffold(
-                appBar: AppBar(title: const Text("Dragon vs Tiger"), backgroundColor: Colors.brown),
-                body: Center(
+                appBar: AppBar(title: const Text("Andar Bahar Live"), backgroundColor: const Color(0xFF0F172A)),
+                body: Container(
+                  color: const Color(0xFF042F2C),
+                  padding: const EdgeInsets.all(12),
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(msg, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.amber)),
-                      const SizedBox(height: 30),
-                      ElevatedButton(onPressed: play, style: ElevatedButton.styleFrom(backgroundColor: Colors.red, minimumSize: const Size(160, 48)), child: const Text("PLAY ROUND")),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(status, style: const TextStyle(color: Colors.amberAccent, fontSize: 13, fontWeight: FontWeight.bold)),
+                          Text("Chips: ₹${WalletState.chips.toInt()}", style: const TextStyle(color: Colors.greenAccent, fontSize: 13)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Center(
+                        child: Column(
+                          children: [
+                            const Text("JOKER CARD", style: TextStyle(color: Colors.white70, fontSize: 11)),
+                            Container(
+                              width: 48,
+                              height: 68,
+                              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.amber, width: 2)),
+                              alignment: Alignment.center,
+                              child: Text(joker, style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Spacer(),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              height: 90,
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(color: Colors.blue.withOpacity(0.2), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.blueAccent)),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text("ANDAR", style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontSize: 12)),
+                                  SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: Row(
+                                      children: andarCards.map((c) => Container(
+                                        margin: const EdgeInsets.only(right: 4),
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4)),
+                                        child: Text(c, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                                      )).toList(),
+                                    ),
+                                  )
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Container(
+                              height: 90,
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(color: Colors.deepOrange.withOpacity(0.2), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.deepOrange)),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text("BAHAR", style: TextStyle(color: Colors.deepOrange, fontWeight: FontWeight.bold, fontSize: 12)),
+                                  SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: Row(
+                                      children: baharCards.map((c) => Container(
+                                        margin: const EdgeInsets.only(right: 4),
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4)),
+                                        child: Text(c, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                                      )).toList(),
+                                    ),
+                                  )
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, minimumSize: const Size(120, 38)),
+                            onPressed: isDealing ? null : () => startDealing("Andar"),
+                            child: const Text("BET ANDAR (₹50)"),
+                          ),
+                          const SizedBox(width: 20),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.deepOrange, minimumSize: const Size(120, 38)),
+                            onPressed: isDealing ? null : () => startDealing("Bahar"),
+                            child: const Text("BET BAHAR (₹50)"),
+                          ),
+                        ],
+                      )
                     ],
                   ),
                 ),
@@ -261,39 +648,112 @@ jobs:
             }
           }
 
-          class AndarBaharScreen extends StatefulWidget {
-            const AndarBaharScreen({super.key});
+          // ------------------ SCREEN 4: ASLI DRAGON VS TIGER TABLE ------------------
+          class RealDragonTigerTable extends StatefulWidget {
+            const RealDragonTigerTable({super.key});
             @override
-            State<AndarBaharScreen> createState() => _AndarBaharScreenState();
+            State<RealDragonTigerTable> createState() => _RealDragonTigerTableState();
           }
 
-          class _AndarBaharScreenState extends State<AndarBaharScreen> {
-            String res = "Choose Andar or Bahar";
-            void choose(String side) {
-              setState(() => res = "$side Won!");
+          class _RealDragonTigerTableState extends State<RealDragonTigerTable> {
+            String dragonCard = "?";
+            String tigerCard = "?";
+            String resultText = "Dragon ya Tiger par bet lagayein";
+            bool isRolling = false;
+
+            void clash(String pick) {
+              if (WalletState.chips < 50 || isRolling) return;
+              setState(() {
+                WalletState.chips -= 50;
+                isRolling = true;
+                resultText = "Cards Deal ho rahe hain...";
+              });
+
+              Timer(const Duration(milliseconds: 900), () {
+                if (!mounted) return;
+                int dVal = Random().nextInt(13) + 1;
+                int tVal = Random().nextInt(13) + 1;
+                String dRank = dVal == 1 ? "A" : dVal == 11 ? "J" : dVal == 12 ? "Q" : dVal == 13 ? "K" : "$dVal";
+                String tRank = tVal == 1 ? "A" : tVal == 11 ? "J" : tVal == 12 ? "Q" : tVal == 13 ? "K" : "$tVal";
+
+                bool won = (dVal > tVal && pick == "Dragon") || (tVal > dVal && pick == "Tiger");
+                if (won) WalletState.chips += 100;
+
+                setState(() {
+                  dragonCard = "$dRank♠";
+                  tigerCard = "$tRank♥";
+                  isRolling = false;
+                  resultText = won ? "🔥 $pick JEET GAYA! (+₹100)" : "❌ $pick Haar gaya. Agli baari jeetenge!";
+                });
+              });
             }
 
             @override
             Widget build(BuildContext context) {
               return Scaffold(
-                appBar: AppBar(title: const Text("Andar Bahar"), backgroundColor: const Color(0xFF064E3B)),
-                body: Center(
+                appBar: AppBar(title: const Text("Dragon vs Tiger Battle Arena"), backgroundColor: const Color(0xFF0F172A)),
+                body: Container(
+                  color: const Color(0xFF1E0A0A),
+                  padding: const EdgeInsets.all(16),
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(res, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.amber)),
-                      const SizedBox(height: 25),
+                      Text(resultText, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.amberAccent)),
+                      const Spacer(),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          ElevatedButton(onPressed: () => choose("Andar"), style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent), child: const Text("ANDAR")),
-                          const SizedBox(width: 15),
-                          ElevatedButton(onPressed: () => choose("Bahar"), style: ElevatedButton.styleFrom(backgroundColor: Colors.deepOrange), child: const Text("BAHAR")),
+                          _arenaSlot("DRAGON", dragonCard, Colors.red),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 24),
+                            child: Text("VS", style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.amber)),
+                          ),
+                          _arenaSlot("TIGER", tigerCard, Colors.amber),
+                        ],
+                      ),
+                      const Spacer(),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, minimumSize: const Size(130, 42)),
+                            onPressed: isRolling ? null : () => clash("Dragon"),
+                            child: const Text("DRAGON (₹50)", style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                          const SizedBox(width: 24),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, foregroundColor: Colors.black, minimumSize: const Size(130, 42)),
+                            onPressed: isRolling ? null : () => clash("Tiger"),
+                            child: const Text("TIGER (₹50)", style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
                         ],
                       )
                     ],
                   ),
                 ),
+              );
+            }
+
+            Widget _arenaSlot(String side, String cardVal, Color borderCol) {
+              return Column(
+                children: [
+                  Text(side, style: TextStyle(color: borderCol, fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: 65,
+                    height: 95,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: borderCol, width: 3),
+                      boxShadow: [BoxShadow(color: borderCol.withOpacity(0.4), blurRadius: 12)],
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      cardVal,
+                      style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: cardVal.contains("♥") ? Colors.red : Colors.black),
+                    ),
+                  ),
+                ],
               );
             }
           }
@@ -305,3 +765,4 @@ jobs:
         with:
           name: Royal-TeenPatti-Pro-APK
           path: myapp/build/app/outputs/flutter-apk/app-debug.apk
+          
