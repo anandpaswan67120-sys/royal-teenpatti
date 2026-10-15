@@ -24,16 +24,11 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Setup App & Config
+      - name: Build APK Clean
         run: |
           flutter create --platforms=android myapp
           cd myapp
-          # Copy main.dart
           cp ../main.dart lib/main.dart
-          
-          # Fix Android orientation in Manifest to prevent black screen
-          sed -i 's/<activity/<activity android:screenOrientation="unspecified" android:configChanges="orientation|keyboardHidden|screenSize"/g' android/app/src/main/AndroidManifest.xml
-          
           flutter build apk --debug
 
       - name: Upload APK
@@ -41,4 +36,3 @@ jobs:
         with:
           name: Royal-TeenPatti-Pro-APK
           path: myapp/build/app/outputs/flutter-apk/app-debug.apk
-          
