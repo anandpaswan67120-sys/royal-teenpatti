@@ -24,11 +24,20 @@ jobs:
         with:
           channel: 'stable'
 
+      - name: Create and Setup App
+        run: |
+          flutter create --platforms=android casino_app
+          if [ -f "lib/main.dart" ]; then
+            cp lib/main.dart casino_app/lib/main.dart
+          fi
+
       - name: Build APK
-        run: flutter build apk --debug
+        run: |
+          cd casino_app
+          flutter build apk --debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Royal-TeenPatti-Pro-APK
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          path: casino_app/build/app/outputs/flutter-apk/app-debug.apk
