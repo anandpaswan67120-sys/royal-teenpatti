@@ -22,20 +22,169 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.6'
           channel: 'stable'
 
-      - name: Build Android APK
+      - name: Build Clean APK
         run: |
-          flutter create --platforms=android myapp
-          cd myapp
-          cp ../main.dart lib/main.dart
-          flutter pub get
+          flutter create --platforms=android mygame
+          cd mygame
+          cat << 'EOF' > lib/main.dart
+          import 'package:flutter/material.dart';
+
+          void main() => runApp(const TeenPattiApp());
+
+          class TeenPattiApp extends StatelessWidget {
+            const TeenPattiApp({super.key});
+            @override
+            Widget build(BuildContext context) {
+              return MaterialApp(
+                title: 'Royal Teen Patti',
+                debugShowCheckedModeBanner: false,
+                theme: ThemeData.dark(),
+                home: const GameHome(),
+              );
+            }
+          }
+
+          class GameHome extends StatefulWidget {
+            const GameHome({super.key});
+            @override
+            State<GameHome> createState() => _GameHomeState();
+          }
+
+          class _GameHomeState extends State<GameHome> {
+            int balance = 1500;
+            int pot = 100;
+            bool seen = false;
+            String msg = "Aapki chaal hai!";
+
+            @override
+            Widget build(BuildContext context) {
+              return Scaffold(
+                backgroundColor: const Color(0xFF0F172A),
+                appBar: AppBar(
+                  title: const Text("Royal Teen Patti Live"),
+                  backgroundColor: const Color(0xFF1E293B),
+                  actions: [
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 16),
+                        child: Text("Wallet: ₹$balance", style: const TextStyle(color: Colors.greenAccent, fontSize: 16, fontWeight: FontWeight.bold)),
+                      ),
+                    )
+                  ],
+                ),
+                body: Column(
+                  children: [
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: const [
+                        Text("🧔 Rohit (₹2500)"),
+                        Text("👩 Sneha (₹1800)"),
+                        Text("🧑 Rahul (₹3000)"),
+                      ],
+                    ),
+                    Expanded(
+                      child: Center(
+                        child: Container(
+                          width: 260,
+                          height: 150,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF065F46),
+                            borderRadius: BorderRadius.circular(80),
+                            border: Border.all(color: Colors.amber, width: 3),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text("POT AMOUNT", style: TextStyle(color: Colors.white70)),
+                              Text("₹$pot", style: const TextStyle(fontSize: 30, color: Colors.amber, fontWeight: FontWeight.bold)),
+                              Text(msg, style: const TextStyle(color: Colors.white, fontSize: 12)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      color: const Color(0xFF1E293B),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              _card(seen ? "A♠" : "🂠"),
+                              _card(seen ? "K♥" : "🂠"),
+                              _card(seen ? "Q♦" : "🂠"),
+                            ],
+                          ),
+                          TextButton(
+                            onPressed: () => setState(() => seen = !seen),
+                            child: Text(seen ? "BLIND KHELE" : "SEE CARDS", style: const TextStyle(color: Colors.amber)),
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              ElevatedButton(
+                                onPressed: () {
+                                  setState(() {
+                                    pot = 100;
+                                    msg = "Aap Pack ho gaye!";
+                                  });
+                                },
+                                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                                child: const Text("PACK"),
+                              ),
+                              ElevatedButton(
+                                onPressed: () {
+                                  setState(() {
+                                    balance -= 20;
+                                    pot += 40;
+                                    msg = "Chaal chali gayi! Bots ne call kiya.";
+                                  });
+                                },
+                                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                                child: const Text("CHAAL (₹20)"),
+                              ),
+                              ElevatedButton(
+                                onPressed: () {
+                                  setState(() {
+                                    balance += pot;
+                                    pot = 0;
+                                    msg = "Badhai ho! Aap jeet gaye!";
+                                  });
+                                },
+                                style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, foregroundColor: Colors.black),
+                                child: const Text("SHOW"),
+                              ),
+                            ],
+                          )
+                        ],
+                      ),
+                    )
+                  ],
+                ),
+              );
+            }
+
+            Widget _card(String text) {
+              return Container(
+                margin: const EdgeInsets.symmetric(horizontal: 5),
+                width: 50,
+                height: 70,
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6)),
+                alignment: Alignment.center,
+                child: Text(text, style: const TextStyle(fontSize: 22, color: Colors.black, fontWeight: FontWeight.bold)),
+              );
+            }
+          }
+          EOF
           flutter build apk --debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Royal-TeenPatti-APK
-          path: myapp/build/app/outputs/flutter-apk/app-debug.apk
+          path: mygame/build/app/outputs/flutter-apk/app-debug.apk
           
